@@ -12,6 +12,38 @@ from src.data.dataset import build_grpo_datasets
 from src.training.grpo import train_grpo
 
 
+# --- default reward functions (same as notebook) ---
+def reward_length(completions, **kwargs):
+    return [min(len(c.split()), 200) / 200.0 for c in completions]
+
+
+def reward_format(completions, **kwargs):
+    out = []
+    for c in completions:
+        s = 0.0
+        if c and c.strip():
+            s += 0.5
+        if "```" in c or c.rstrip().endswith((".", "!", "?")):
+            s += 0.5
+        out.append(s)
+    return out
+
+
+def reward_no_repetition(completions, **kwargs):
+    out = []
+    for c in completions:
+        toks = c.split()
+        if len(toks) < 8:
+            out.append(0.0)
+            continue
+        tri = [tuple(toks[i:i+3]) for i in range(len(toks) - 2)]
+        out.append(len(set(tri)) / max(len(tri), 1))
+    return out
+
+
+REWARD_FUNCS = [reward_length, reward_format, reward_no_repetition]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train with GRPO on StackSample.")
     parser.add_argument("--model_name", default="google/gemma-3-270m")
@@ -24,7 +56,6 @@ def main():
     parser.add_argument("--num_generations", type=int, default=4)
     parser.add_argument("--max_completion_length", type=int, default=256)
     parser.add_argument("--seed", type=int, default=42)
-    # --- NEW ---
     parser.add_argument("--logging_steps", type=int, default=1)
     parser.add_argument("--eval_steps", type=int, default=5)
     parser.add_argument("--save_steps", type=int, default=10)
@@ -41,6 +72,7 @@ def main():
         model_name=args.model_name,
         train_dataset=datasets["train"],
         eval_dataset=datasets["validation"],
+        reward_funcs=REWARD_FUNCS,        # <-- required
         output_dir=args.output_dir,
         epochs=args.epochs,
         batch_size=args.batch_size,

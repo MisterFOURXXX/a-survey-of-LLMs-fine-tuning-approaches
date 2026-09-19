@@ -20,6 +20,7 @@ def train_grpo(
     model_name: str,
     train_dataset,
     eval_dataset,
+    reward_funcs,                       # <-- REQUIRED (was reward_funcs=None)
     output_dir: str,
     use_lora: bool = True,
     qlora: bool = False,
@@ -38,6 +39,14 @@ def train_grpo(
         raise ImportError(
             f"GRPOTrainer is not available in TRL {TRL_VERSION}. "
             f'Install with: pip install --upgrade "trl>=0.14.0"'
+        )
+
+    if reward_funcs is None:
+        raise ValueError(
+            "GRPO requires at least one reward function. Pass "
+            "`reward_funcs=<callable>` or `reward_funcs=[<callable>, ...]`. "
+            "Each function must accept `(completions, **kwargs)` and return "
+            "a list of floats (one per completion)."
         )
 
     tokenizer = load_tokenizer(model_name)
@@ -69,15 +78,14 @@ def train_grpo(
         else {"tokenizer": tokenizer}
     )
 
-    trainer_kwargs = dict(
+    trainer = GRPOTrainer(
         model=model,
+        reward_funcs=reward_funcs,      # <-- always forwarded, never optional
         args=grpo_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         **extra,
     )
-
-    trainer = GRPOTrainer(**trainer_kwargs)
     trainer.train()
     trainer.save_model(output_dir)
     return trainer

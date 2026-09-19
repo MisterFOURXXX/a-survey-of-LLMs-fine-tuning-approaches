@@ -24,6 +24,10 @@ def main():
     parser.add_argument("--num_generations", type=int, default=4)
     parser.add_argument("--max_completion_length", type=int, default=256)
     parser.add_argument("--seed", type=int, default=42)
+    # --- NEW ---
+    parser.add_argument("--logging_steps", type=int, default=1)
+    parser.add_argument("--eval_steps", type=int, default=5)
+    parser.add_argument("--save_steps", type=int, default=10)
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -44,6 +48,9 @@ def main():
         lr=args.lr,
         num_generations=args.num_generations,
         max_completion_length=args.max_completion_length,
+        logging_steps=args.logging_steps,
+        eval_steps=args.eval_steps,
+        save_steps=args.save_steps,
     )
 
 

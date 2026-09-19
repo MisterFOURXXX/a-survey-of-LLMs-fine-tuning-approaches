@@ -23,6 +23,10 @@ def main():
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument("--seed", type=int, default=42)
+    # --- NEW ---
+    parser.add_argument("--logging_steps", type=int, default=1)
+    parser.add_argument("--eval_steps", type=int, default=5)
+    parser.add_argument("--save_steps", type=int, default=10)
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -42,6 +46,9 @@ def main():
         grad_accum=args.grad_accum,
         lr=args.lr,
         max_length=args.max_length,
+        logging_steps=args.logging_steps,
+        eval_steps=args.eval_steps,
+        save_steps=args.save_steps,
     )
 
 

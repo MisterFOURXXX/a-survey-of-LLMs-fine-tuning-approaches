@@ -1,6 +1,7 @@
 """GRPO (Group Relative Policy Optimization) training."""
 
 import logging
+
 logging.getLogger("trl.trainer.reward_trainer").setLevel(logging.ERROR)
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
 
@@ -57,10 +58,10 @@ def train_grpo(
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
+        learning_rate=lr,
         logging_steps=logging_steps,
         eval_steps=eval_steps,
         save_steps=save_steps,
-        learning_rate=lr,
     )
 
     extra = (

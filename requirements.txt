@@ -1,16 +1,24 @@
-# Core
-torch>=2.4,<2.7
+# ---- PyTorch stack (must be a matching pair) ----
+# Kaggle/Colab ship a specific pair; adding these lines keeps them aligned
+# when the kernel is recreated.
+torch==2.10.0
+torchvision==0.25.0
+torchaudio==2.10.0
+
+# ---- Hugging Face stack ----
 transformers>=4.45,<5.0
 datasets>=2.20
 accelerate>=1.0
 peft>=0.13
-trl>=0.12.0,<0.14.0        # ← THE key pin
+trl>=0.14.0,<0.15.0
+
+# ---- Training / eval ----
 bitsandbytes>=0.44
 evaluate>=0.4
 rouge-score
 nltk
 
-# Data
+# ---- Data ----
 polars
 beautifulsoup4
 lxml
@@ -20,9 +28,8 @@ numpy<2.0
 pyyaml
 tqdm
 
-# Extras
+# ---- Extras ----
 sentence-transformers
 matplotlib
 jupyter
 kaggle
-torchao>=0.16.0

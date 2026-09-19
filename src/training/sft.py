@@ -24,7 +24,7 @@ def train_sft(
     epochs: int = 3,
     batch_size: int = 4,
     grad_accum: int = 2,
-    lr: float = 2e-4,
+    lr: float = 1e-6,
     logging_steps: int = 5,
     eval_strategy: str = "epoch",
     save_strategy: str = "epoch",

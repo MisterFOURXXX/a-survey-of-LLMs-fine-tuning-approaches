@@ -36,16 +36,13 @@ def _eval_kwarg(strategy: str) -> dict:
             else {"evaluation_strategy": strategy})
 
 
-# ---------------------------------------------------------------------------
-# SFT
-# ---------------------------------------------------------------------------
 def build_sft_config(
     output_dir, max_seq_length=256, dataset_text_field="text", packing=False,
     num_train_epochs=3, per_device_train_batch_size=4, per_device_eval_batch_size=4,
     gradient_accumulation_steps=2, learning_rate=2e-4, weight_decay=0.01,
     warmup_ratio=0.1, lr_scheduler_type="cosine",
     eval_strategy="epoch", save_strategy="epoch",
-    logging_steps=5,                     # small enough for short runs
+    logging_steps=5,
     save_total_limit=2,
     load_best_model_at_end=True, metric_for_best_model="eval_loss",
     greater_is_better=False, fp16=False, bf16=False, report_to="none",
@@ -77,21 +74,17 @@ def build_sft_config(
     return SFTConfig(**kwargs)
 
 
-# ---------------------------------------------------------------------------
-# DPO — `log_completions` is NOT a DPOConfig field on trl 0.14.0
-# ---------------------------------------------------------------------------
 def build_dpo_config(
     output_dir, beta=0.1, max_length=512, max_prompt_length=256,
     num_train_epochs=3, per_device_train_batch_size=2, per_device_eval_batch_size=2,
     gradient_accumulation_steps=4, learning_rate=1e-6, weight_decay=0.01,
     warmup_ratio=0.1, lr_scheduler_type="cosine",
-    eval_strategy="steps",
-    eval_steps=5,                        # must be <= total steps
-    save_strategy="steps",
-    save_steps=5,
-    logging_steps=1,                     # log every step
+    eval_strategy="steps", eval_steps=5,
+    save_strategy="steps", save_steps=5,
+    logging_steps=1,
     fp16=False, bf16=False, report_to="none", seed=42,
 ):
+    # NOTE: `log_completions` is NOT a DPOConfig kwarg on trl 0.14.0.
     _require(DPOConfig, "DPOConfig", "0.12.0")
     kwargs = dict(
         output_dir=output_dir, beta=beta, max_length=max_length,
@@ -105,16 +98,11 @@ def build_dpo_config(
         save_steps=save_steps, logging_steps=logging_steps,
         fp16=fp16, bf16=bf16, report_to=report_to, seed=seed,
         remove_unused_columns=False,
-        # NOTE: `log_completions` is NOT accepted by DPOConfig on trl 0.14.0.
-        #       The rich table is suppressed via a monkey-patch in the notebook.
     )
     kwargs.update(_eval_kwarg(eval_strategy))
     return DPOConfig(**kwargs)
 
 
-# ---------------------------------------------------------------------------
-# Reward — `log_completions` also not a RewardConfig field on trl 0.14.0
-# ---------------------------------------------------------------------------
 def build_reward_config(
     output_dir, max_length=512, num_train_epochs=3,
     per_device_train_batch_size=1, per_device_eval_batch_size=1,
@@ -140,15 +128,11 @@ def build_reward_config(
         bf16=bf16, fp16=fp16, report_to=report_to, seed=seed,
         gradient_checkpointing=gradient_checkpointing,
         remove_unused_columns=False,
-        # NOTE: no `log_completions` here either.
     )
     kwargs.update(_eval_kwarg(eval_strategy))
     return RewardConfig(**kwargs)
 
 
-# ---------------------------------------------------------------------------
-# GRPO
-# ---------------------------------------------------------------------------
 def build_grpo_config(
     output_dir, num_generations=4, max_completion_length=256,
     max_prompt_length=256, temperature=0.9,

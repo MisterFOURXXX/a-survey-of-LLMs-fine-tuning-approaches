@@ -1,5 +1,9 @@
 """GRPO (Group Relative Policy Optimization) training."""
 
+import logging
+logging.getLogger("trl.trainer.reward_trainer").setLevel(logging.ERROR)
+logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
+
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.models.peft import apply_lora
 from src.utils.config import build_grpo_config

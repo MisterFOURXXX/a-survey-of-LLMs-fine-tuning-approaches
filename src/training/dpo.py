@@ -25,6 +25,10 @@ def train_dpo(
     batch_size: int = 2,
     grad_accum: int = 4,
     lr: float = 1e-6,
+    logging_steps: int = 1,
+    eval_steps: int = 5,
+    save_steps: int = 5,
+    log_completions: bool = False,
 ):
     if DPOTrainer is None:
         raise ImportError(
@@ -50,6 +54,10 @@ def train_dpo(
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
+        logging_steps=logging_steps,
+        eval_steps=eval_steps,
+        save_steps=save_steps,
+        log_completions=log_completions,
     )
 
     extra = (

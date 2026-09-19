@@ -102,7 +102,7 @@ def load_stackoverflow(raw_dir: str | Path | None = None) -> pd.DataFrame:
         columns=["Id", "ParentId", "Body", "Score"],
     ).filter(pl.col("Score") > 5)
 
-    questions = questions.sort("Score", descending=True).head(50) # was 200
+    questions = questions.sort("Score", descending=True).head(100) # was 200
 
     questions = questions.with_columns([
         pl.col("Body").map_elements(clean_html, return_dtype=pl.Utf8),

@@ -59,7 +59,7 @@ def load_causal_lm(
     model_name: str,
     quantize: bool = False,
     dtype="auto",
-    device_map: str = "auto",
+    device_map=None,                      # <-- None, not "auto"
     tokenizer=None,
 ):
     model = AutoModelForCausalLM.from_pretrained(
@@ -68,6 +68,7 @@ def load_causal_lm(
     )
     if tokenizer is not None:
         _align_special_tokens(model, tokenizer)
+    model.config.use_cache = False
     return model
 
 
@@ -76,7 +77,7 @@ def load_reward_model(
     num_labels: int = 1,
     quantize: bool = False,
     dtype="auto",
-    device_map: str = "auto",
+    device_map=None,                      # <-- None, not "auto"
     tokenizer=None,
 ):
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -86,4 +87,5 @@ def load_reward_model(
     )
     if tokenizer is not None:
         _align_special_tokens(model, tokenizer)
+    model.config.use_cache = False
     return model

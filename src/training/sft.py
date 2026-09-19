@@ -25,6 +25,9 @@ def train_sft(
     batch_size: int = 4,
     grad_accum: int = 2,
     lr: float = 2e-4,
+    logging_steps: int = 5,
+    eval_strategy: str = "epoch",
+    save_strategy: str = "epoch",
     fp16: bool = False,
     bf16: bool = False,
 ):
@@ -39,13 +42,8 @@ def train_sft(
         model_name, quantize=qlora, dtype="auto", tokenizer=tokenizer
     )
 
-    # ---- IMPORTANT: attach LoRA BEFORE training so the adapters are the ----
-    # ---- parameters that receive gradients; otherwise the trainer sees  ----
-    # ---- a fully frozen model and raises "does not require grad".       ----
     if use_lora or qlora:
         model = apply_lora(model)
-
-    # gradient checkpointing requires use_cache=False
     model.config.use_cache = False
 
     sft_config = build_sft_config(
@@ -58,6 +56,9 @@ def train_sft(
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
+        logging_steps=logging_steps,
+        eval_strategy=eval_strategy,
+        save_strategy=save_strategy,
         fp16=fp16,
         bf16=bf16,
         gradient_checkpointing=True,
@@ -76,7 +77,6 @@ def train_sft(
         eval_dataset=eval_dataset,
         **extra,
     )
-
     trainer.train()
     trainer.save_model(output_dir)
     tokenizer.save_pretrained(output_dir)

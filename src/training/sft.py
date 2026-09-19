@@ -1,11 +1,4 @@
-"""Supervised Fine-Tuning (SFT) with optional LoRA / QLoRA.
-
-This file is the fix for:
-    TypeError: SFTConfig.__init__() got an unexpected keyword argument 'max_seq_length'
-
-The parameter name depends on the installed TRL version. `build_sft_config`
-in src/utils/config.py handles the difference.
-"""
+"""Supervised Fine-Tuning (SFT) with optional LoRA / QLoRA."""
 
 from trl import SFTTrainer
 
@@ -53,7 +46,6 @@ def train_sft(
         gradient_checkpointing=True,
     )
 
-    # TRL 0.12+ uses `processing_class`; older uses `tokenizer`.
     extra = (
         {"processing_class": tokenizer}
         if TRAINER_USES_PROCESSING_CLASS

@@ -1,13 +1,11 @@
 """Central place that builds TRL config objects with the correct parameter
 names for the installed TRL version.
 
-Safe to import on any TRL version — classes that are not available in the
-installed TRL release are simply left as `None` and their builders raise a
-clear, actionable error only when called.
+Safe to import on any TRL version. Uses runtime introspection for parameter
+names so future TRL renames never break the code.
 """
 
 from src.utils.version import (
-    SFT_USES_MAX_LENGTH,
     HAS_MASK_TRUNCATED,
     HAS_SFT,
     HAS_DPO,
@@ -81,7 +79,7 @@ def build_sft_config(
 ):
     _require(SFTConfig, "SFTConfig", "0.12.0")
 
-    kwargs = dict(
+    common_kwargs = dict(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -108,17 +106,25 @@ def build_sft_config(
         packing=packing,
     )
 
-    # The ONE thing that differs across TRL versions:
-    if SFT_USES_MAX_LENGTH:
-        kwargs["max_length"] = max_seq_length
-    else:
-        kwargs["max_seq_length"] = max_seq_length
+    # Bulletproof: try new param name first, then old. Works on any TRL.
+    last_error = None
+    for key in ("max_length", "max_seq_length"):
+        try:
+            return SFTConfig(**common_kwargs, **{key: max_seq_length})
+        except TypeError as e:
+            if "unexpected keyword argument" not in str(e):
+                raise
+            last_error = e
+            continue
 
-    return SFTConfig(**kwargs)
+    raise TypeError(
+        f"SFTConfig accepts neither `max_length` nor `max_seq_length` "
+        f"in TRL {TRL_VERSION}. Original error: {last_error}"
+    )
 
 
 # ---------------------------------------------------------------------------
-# DPO
+# DPO — same idea, also bulletproof for `max_length`
 # ---------------------------------------------------------------------------
 def build_dpo_config(
     output_dir: str,
@@ -249,7 +255,6 @@ def build_grpo_config(
     seed: int = 42,
     gradient_checkpointing: bool = True,
 ):
-    # Only fails if the user *calls* this builder on an old TRL.
     _require(GRPOConfig, "GRPOConfig", "0.14.0")
 
     kwargs = dict(

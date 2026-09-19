@@ -45,7 +45,7 @@ def build_sft_config(
     gradient_accumulation_steps=2, learning_rate=2e-4, weight_decay=0.01,
     warmup_ratio=0.1, lr_scheduler_type="cosine",
     eval_strategy="epoch", save_strategy="epoch",
-    logging_steps=5,                     # <-- was 50; small enough for short runs
+    logging_steps=5,                     # small enough for short runs
     save_total_limit=2,
     load_best_model_at_end=True, metric_for_best_model="eval_loss",
     greater_is_better=False, fp16=False, bf16=False, report_to="none",
@@ -78,7 +78,7 @@ def build_sft_config(
 
 
 # ---------------------------------------------------------------------------
-# DPO
+# DPO — `log_completions` is NOT a DPOConfig field on trl 0.14.0
 # ---------------------------------------------------------------------------
 def build_dpo_config(
     output_dir, beta=0.1, max_length=512, max_prompt_length=256,
@@ -86,12 +86,11 @@ def build_dpo_config(
     gradient_accumulation_steps=4, learning_rate=1e-6, weight_decay=0.01,
     warmup_ratio=0.1, lr_scheduler_type="cosine",
     eval_strategy="steps",
-    eval_steps=5,                        # <-- was 100; must be <= total steps
+    eval_steps=5,                        # must be <= total steps
     save_strategy="steps",
-    save_steps=5,                        # <-- was 100
-    logging_steps=1,                     # <-- was 50; log every step
+    save_steps=5,
+    logging_steps=1,                     # log every step
     fp16=False, bf16=False, report_to="none", seed=42,
-    log_completions=False,               # <-- hides the huge rich table
 ):
     _require(DPOConfig, "DPOConfig", "0.12.0")
     kwargs = dict(
@@ -106,28 +105,26 @@ def build_dpo_config(
         save_steps=save_steps, logging_steps=logging_steps,
         fp16=fp16, bf16=bf16, report_to=report_to, seed=seed,
         remove_unused_columns=False,
-        log_completions=log_completions,
+        # NOTE: `log_completions` is NOT accepted by DPOConfig on trl 0.14.0.
+        #       The rich table is suppressed via a monkey-patch in the notebook.
     )
     kwargs.update(_eval_kwarg(eval_strategy))
     return DPOConfig(**kwargs)
 
 
 # ---------------------------------------------------------------------------
-# Reward
+# Reward — `log_completions` also not a RewardConfig field on trl 0.14.0
 # ---------------------------------------------------------------------------
 def build_reward_config(
     output_dir, max_length=512, num_train_epochs=3,
     per_device_train_batch_size=1, per_device_eval_batch_size=1,
     gradient_accumulation_steps=4, learning_rate=2e-5, weight_decay=0.01,
     warmup_ratio=0.1, lr_scheduler_type="cosine",
-    eval_strategy="steps",
-    eval_steps=10,                       # <-- was epoch (rely on eval_steps now)
-    save_strategy="steps",
-    save_steps=10,
-    logging_steps=1,                     # <-- was 10
+    eval_strategy="steps", eval_steps=10,
+    save_strategy="steps", save_steps=10,
+    logging_steps=1,
     bf16=True, fp16=False,
     report_to="none", seed=42, gradient_checkpointing=True,
-    log_completions=False,
 ):
     _require(RewardConfig, "RewardConfig", "0.12.0")
     kwargs = dict(
@@ -143,7 +140,7 @@ def build_reward_config(
         bf16=bf16, fp16=fp16, report_to=report_to, seed=seed,
         gradient_checkpointing=gradient_checkpointing,
         remove_unused_columns=False,
-        log_completions=log_completions,
+        # NOTE: no `log_completions` here either.
     )
     kwargs.update(_eval_kwarg(eval_strategy))
     return RewardConfig(**kwargs)
@@ -159,11 +156,9 @@ def build_grpo_config(
     per_device_eval_batch_size=2, gradient_accumulation_steps=4,
     learning_rate=1e-6, weight_decay=0.01, warmup_ratio=0.1,
     lr_scheduler_type="cosine",
-    eval_strategy="steps",
-    eval_steps=5,                        # <-- was 50
-    save_strategy="steps",
-    save_steps=5,                        # <-- was 50
-    logging_steps=1,                     # <-- was 10
+    eval_strategy="steps", eval_steps=5,
+    save_strategy="steps", save_steps=5,
+    logging_steps=1,
     bf16=True, fp16=False, report_to="none", seed=42,
     gradient_checkpointing=True,
 ):

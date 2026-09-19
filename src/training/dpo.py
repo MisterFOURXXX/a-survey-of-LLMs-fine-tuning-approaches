@@ -28,7 +28,6 @@ def train_dpo(
     logging_steps: int = 1,
     eval_steps: int = 5,
     save_steps: int = 5,
-    log_completions: bool = False,
 ):
     if DPOTrainer is None:
         raise ImportError(
@@ -57,7 +56,6 @@ def train_dpo(
         logging_steps=logging_steps,
         eval_steps=eval_steps,
         save_steps=save_steps,
-        log_completions=log_completions,
     )
 
     extra = (

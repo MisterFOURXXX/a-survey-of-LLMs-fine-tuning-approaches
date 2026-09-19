@@ -1,5 +1,7 @@
-from transformers import TrainingArguments
-from trl import SFTTrainer
+"""Supervised Fine-Tuning (SFT) with optional LoRA / QLoRA."""
+
+from trl import SFTTrainer, SFTConfig
+
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.models.peft import apply_lora
 
@@ -23,7 +25,7 @@ def train_sft(
     if use_lora or qlora:
         model = apply_lora(model)
 
-    args = TrainingArguments(
+    args = SFTConfig(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
@@ -40,6 +42,8 @@ def train_sft(
         report_to="none",
         remove_unused_columns=False,
         fp16=not qlora,
+        max_seq_length=max_seq_length,
+        dataset_text_field="text",
     )
 
     trainer = SFTTrainer(
@@ -48,8 +52,6 @@ def train_sft(
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
-        max_seq_length=max_seq_length,
-        dataset_text_field="text",
     )
 
     trainer.train()

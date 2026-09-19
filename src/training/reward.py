@@ -26,6 +26,9 @@ def train_reward(
     batch_size: int = 1,
     grad_accum: int = 4,
     lr: float = 2e-5,
+    logging_steps: int = 1,
+    eval_steps: int = 5,
+    save_steps: int = 10,
 ):
     if RewardTrainer is None:
         raise ImportError(
@@ -48,6 +51,9 @@ def train_reward(
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
+        logning_steps=logging_steps,
+        eval_steps=eval_steps,
+        save_steps=save_steps,
         learning_rate=lr,
     )
 

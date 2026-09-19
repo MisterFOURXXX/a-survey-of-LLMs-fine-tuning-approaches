@@ -122,7 +122,7 @@ def build_reward_config(
 def build_grpo_config(
     output_dir, num_generations=4, max_completion_length=256,
     max_prompt_length=256, temperature=0.9,
-    # NOTE: top_p is NOT a GRPOConfig kwarg in trl 0.14.0 — removed entirely.
+    # top_p is NOT a GRPOConfig kwarg in trl 0.14.0 -> must not be passed
     beta=0.04, num_train_epochs=3, per_device_train_batch_size=2,
     per_device_eval_batch_size=2, gradient_accumulation_steps=4,
     learning_rate=1e-6, weight_decay=0.01, warmup_ratio=0.1,

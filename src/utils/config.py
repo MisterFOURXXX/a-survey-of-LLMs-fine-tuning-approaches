@@ -1,7 +1,7 @@
 """Central place that builds TRL config objects with the correct parameter
 names for the installed TRL + transformers versions.
 
-Works on trl 0.12 → 0.15 and transformers 4.40 → 4.60.
+Works on trl 0.12 -> 0.15 and transformers 4.40 -> 4.60.
 """
 
 from __future__ import annotations
@@ -87,19 +87,7 @@ def build_sft_config(
     report_to: str = "none",
     seed: int = 42,
     gradient_checkpointing: bool = True,
-) -> "SFTConfig":
-    """SFTConfig for trl 0.14.x.
-
-    Notes
-    -----
-    * TRL <0.16 uses `max_seq_length`. Passing `max_length` raises
-      `TypeError: SFTConfig.__init__() got an unexpected keyword argument
-      'max_length'`.
-    * transformers >=4.46 uses `eval_strategy` (not `evaluation_strategy`).
-    * `remove_unused_columns=True` is required so the default
-      DataCollatorForLanguageModeling does not try to tensorize the raw
-      `text` column (→ ValueError: too many dimensions 'str').
-    """
+):
     _require(SFTConfig, "SFTConfig", "0.12.0")
 
     kwargs: dict[str, Any] = dict(
@@ -123,18 +111,15 @@ def build_sft_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        # TRL SFT-specific fields
         dataset_text_field=dataset_text_field,
         packing=packing,
-        # Do NOT keep the raw string column — the default collator
-        # cannot handle `text` as a list of str.
+        # Do NOT keep the raw string column: the default collator cannot
+        # tensorize `text` as a list of str (ValueError: too many dim 'str').
         remove_unused_columns=True,
     )
-
-    # Version-aware evaluation-strategy kwarg
     kwargs.update(_eval_kwarg(eval_strategy))
 
-    # Version-aware max-length kwarg: trl 0.14 → max_seq_length
+    # trl 0.14 uses max_seq_length; trl 0.16+ uses max_length.
     if SFT_USES_MAX_LENGTH:
         kwargs["max_length"] = max_seq_length
     else:
@@ -192,7 +177,6 @@ def build_dpo_config(
         bf16=bf16,
         report_to=report_to,
         seed=seed,
-        # DPO needs the raw prompt/chosen/rejected columns to reach the trainer
         remove_unused_columns=False,
     )
     kwargs.update(_eval_kwarg(eval_strategy))
@@ -305,7 +289,6 @@ def build_grpo_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        # GRPO's reward functions read `reference` / `ground_truth` columns
         remove_unused_columns=False,
     )
     if HAS_MASK_TRUNCATED:

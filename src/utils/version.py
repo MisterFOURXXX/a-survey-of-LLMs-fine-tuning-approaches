@@ -1,8 +1,8 @@
 """Version detection used to pick the right TRL / transformers keyword names.
 
 Never hard-code flags by hand — always derive them from the installed
-package versions so the same repo works on trl 0.12 → 0.16+ and
-transformers 4.40 → 4.60+.
+package versions so the same repo works on trl 0.12 -> 0.16+ and
+transformers 4.40 -> 4.60+.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ def _v(mod) -> tuple[int, int, int]:
         return (0, 0, 0)
     parts = []
     for tok in mod.__version__.split(".")[:3]:
-        # strip any "rc1"/"dev0" suffix
         num = "".join(ch for ch in tok if ch.isdigit())
         parts.append(int(num) if num else 0)
     while len(parts) < 3:
@@ -38,8 +37,8 @@ TRL_VERSION = _v(trl)
 USES_EVAL_STRATEGY = TRANSFORMERS_VERSION >= (4, 46, 0)
 DTYPE_KWARG = "dtype" if TRANSFORMERS_VERSION >= (4, 46, 0) else "torch_dtype"
 
-# TRL renamed max_seq_length -> max_length in 0.16. On 0.14.x
-# SFTConfig does NOT accept `max_length`, so SFT_USES_MAX_LENGTH must be False.
+# TRL renamed max_seq_length -> max_length in 0.16.
+# On 0.14.x SFTConfig does NOT accept `max_length`, so this MUST be False.
 SFT_USES_MAX_LENGTH = TRL_VERSION >= (0, 16, 0)
 
 # SFTTrainer accepts `processing_class` (not `tokenizer`) starting in trl 0.12
@@ -49,10 +48,10 @@ TRAINER_USES_PROCESSING_CLASS = TRL_VERSION >= (0, 12, 0)
 HAS_MASK_TRUNCATED = TRL_VERSION >= (0, 15, 0)
 
 # Trainer availability
-HAS_SFT = trl is not None and hasattr(trl, "SFTTrainer")
-HAS_DPO = trl is not None and hasattr(trl, "DPOTrainer")
+HAS_SFT    = trl is not None and hasattr(trl, "SFTTrainer")
+HAS_DPO    = trl is not None and hasattr(trl, "DPOTrainer")
 HAS_REWARD = trl is not None and hasattr(trl, "RewardTrainer")
-HAS_GRPO = trl is not None and hasattr(trl, "GRPOTrainer")
+HAS_GRPO   = trl is not None and hasattr(trl, "GRPOTrainer")
 
 
 def banner() -> str:

@@ -33,7 +33,6 @@ def train_grpo(
     logging_steps: int = 1,
     eval_steps: int = 5,
     save_steps: int = 10,
-    reward_funcs=None,
 ):
     if GRPOTrainer is None:
         raise ImportError(
@@ -77,8 +76,6 @@ def train_grpo(
         eval_dataset=eval_dataset,
         **extra,
     )
-    if reward_funcs is not None:
-        trainer_kwargs["reward_funcs"] = reward_funcs
 
     trainer = GRPOTrainer(**trainer_kwargs)
     trainer.train()

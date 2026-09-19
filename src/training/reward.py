@@ -53,7 +53,7 @@ def train_reward(
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
-        logging_steps=logging_steps,  \
+        logging_steps=logging_steps,  
         eval_steps=eval_steps,
         save_steps=save_steps,
     )

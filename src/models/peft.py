@@ -1,4 +1,6 @@
-"""PEFT / LoRA helpers — hardened against peft 0.19's strict torchao check."""
+"""PEFT / LoRA helpers — hardened against peft 0.19's strict torchao check
+and against the frozen-embedding + reentrant-gradient-checkpointing bug.
+"""
 
 import importlib.util
 
@@ -16,6 +18,29 @@ def _resolve_targets(model, user_targets):
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ]
+
+
+def _enable_input_require_grads(model):
+    """Force the input embeddings to require grad.
+
+    With PEFT the base model is frozen, so the embedding outputs have
+    requires_grad=False. Reentrant gradient checkpointing then cannot rebuild
+    the autograd graph during the backward pass, producing:
+
+        UserWarning: None of the inputs have requires_grad=True.
+        RuntimeError: element 0 of tensors does not require grad ...
+
+    enable_input_require_grads() registers a forward hook that flips
+    requires_grad=True on the embedding output, which fixes the reentrant
+    path. It is a no-op when gradient checkpointing is disabled.
+    """
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
+    else:
+        def make_inputs_require_grad(module, input, output):
+            output.requires_grad_(True)
+        emb = model.get_input_embeddings()
+        emb.register_forward_hook(make_inputs_require_grad)
 
 
 def apply_lora(
@@ -46,6 +71,9 @@ def apply_lora(
                 "    # then: Runtime -> Restart Session\n"
             ) from e
         raise
+
+    # --- KEY FIX: input embeddings must require grad for reentrant GC ---
+    _enable_input_require_grads(model)
 
     model.print_trainable_parameters()
     return model

@@ -3,11 +3,7 @@
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.models.peft import apply_lora
 from src.utils.config import build_sft_config
-from src.utils.version import (
-    TRAINER_USES_PROCESSING_CLASS,
-    HAS_SFT,
-    TRL_VERSION,
-)
+from src.utils.version import TRAINER_USES_PROCESSING_CLASS, HAS_SFT, TRL_VERSION
 
 if HAS_SFT:
     from trl import SFTTrainer
@@ -43,8 +39,14 @@ def train_sft(
         model_name, quantize=qlora, dtype="auto", tokenizer=tokenizer
     )
 
+    # ---- IMPORTANT: attach LoRA BEFORE training so the adapters are the ----
+    # ---- parameters that receive gradients; otherwise the trainer sees  ----
+    # ---- a fully frozen model and raises "does not require grad".       ----
     if use_lora or qlora:
         model = apply_lora(model)
+
+    # gradient checkpointing requires use_cache=False
+    model.config.use_cache = False
 
     sft_config = build_sft_config(
         output_dir=output_dir,

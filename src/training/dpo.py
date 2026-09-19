@@ -1,10 +1,14 @@
 """Direct Preference Optimization (DPO)."""
 
-from trl import DPOTrainer
-
 from src.models.loaders import load_tokenizer, load_causal_lm
+from src.models.peft import apply_lora
 from src.utils.config import build_dpo_config
-from src.utils.version import TRAINER_USES_PROCESSING_CLASS
+from src.utils.version import TRAINER_USES_PROCESSING_CLASS, HAS_DPO, TRL_VERSION
+
+if HAS_DPO:
+    from trl import DPOTrainer
+else:
+    DPOTrainer = None
 
 
 def train_dpo(
@@ -12,17 +16,29 @@ def train_dpo(
     train_dataset,
     eval_dataset,
     output_dir: str,
+    use_lora: bool = True,
+    qlora: bool = False,
     beta: float = 0.1,
+    max_length: int = 512,
+    max_prompt_length: int = 256,
     epochs: int = 3,
     batch_size: int = 2,
     grad_accum: int = 4,
     lr: float = 1e-6,
-    max_length: int = 512,
-    max_prompt_length: int = 256,
 ):
-    tokenizer = load_tokenizer(model_name, padding_side="left")
-    model = load_causal_lm(model_name, dtype="auto")
-    ref_model = load_causal_lm(model_name, dtype="auto")
+    if DPOTrainer is None:
+        raise ImportError(
+            f"DPOTrainer is not available in TRL {TRL_VERSION}. "
+            f'Install with: pip install --upgrade "trl>=0.12.0"'
+        )
+
+    tokenizer = load_tokenizer(model_name)
+    model = load_causal_lm(
+        model_name, quantize=qlora, dtype="auto", tokenizer=tokenizer
+    )
+    if use_lora or qlora:
+        model = apply_lora(model)
+    model.config.use_cache = False
 
     dpo_config = build_dpo_config(
         output_dir=output_dir,
@@ -44,14 +60,11 @@ def train_dpo(
 
     trainer = DPOTrainer(
         model=model,
-        ref_model=ref_model,
         args=dpo_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         **extra,
     )
-
     trainer.train()
     trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
     return trainer

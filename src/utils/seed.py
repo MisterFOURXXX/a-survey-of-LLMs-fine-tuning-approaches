@@ -1,17 +1,18 @@
+"""Reproducibility helpers."""
+
 import os
 import random
+
 import numpy as np
 import torch
 
 
-def set_seed(seed: int = 42) -> None:
-    """Set global seed for reproducibility across Python, NumPy, and PyTorch."""
+def set_seed(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+    torch.cuda.manual_seed_all(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    # keep deterministic behaviour off (it hurts perf on T4/P100)
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True

@@ -4,7 +4,7 @@
 torch==2.10.0
 torchvision==0.25.0
 torchaudio==2.10.0
-torchao>=0.16.0
+#torchao>=0.16.0
 
 # ---- Hugging Face stack ----
 transformers>=4.45,<5.0

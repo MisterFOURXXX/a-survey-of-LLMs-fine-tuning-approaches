@@ -1,8 +1,7 @@
 """Version detection used to pick the right TRL / transformers keyword names.
 
-Never hard-code flags by hand — always derive them from the installed
-package versions so the same repo works on trl 0.12 -> 0.16+ and
-transformers 4.40 -> 4.60+.
+All flags are derived from the installed package versions, so the same repo
+works on trl 0.12 -> 0.16+ and transformers 4.40 -> 4.60+.
 """
 
 from __future__ import annotations
@@ -46,6 +45,9 @@ TRAINER_USES_PROCESSING_CLASS = TRL_VERSION >= (0, 12, 0)
 
 # GRPOConfig gained mask_truncated_completions in 0.15
 HAS_MASK_TRUNCATED = TRL_VERSION >= (0, 15, 0)
+
+# GRPOConfig gained top_p/top_k in 0.15; on 0.14.0 they are NOT accepted
+HAS_GRPO_TOP_P = TRL_VERSION >= (0, 15, 0)
 
 # Trainer availability
 HAS_SFT    = trl is not None and hasattr(trl, "SFTTrainer")

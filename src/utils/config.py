@@ -1,4 +1,10 @@
-"""TRL config builders — correct kwarg names for trl 0.14.x + transformers 4.57."""
+"""TRL config builders — correct kwarg names for trl 0.14.x + transformers 4.57.
+
+Includes the PEFT + gradient-checkpointing fix:
+    gradient_checkpointing_kwargs={"use_reentrant": False}
+Non-reentrant checkpointing does not need a grad-requiring input, so it works
+with frozen base models + LoRA adapters.
+"""
 
 from __future__ import annotations
 from typing import Any
@@ -16,6 +22,8 @@ if HAS_REWARD: from trl import RewardConfig
 else:          RewardConfig = None
 if HAS_GRPO:   from trl import GRPOConfig
 else:          GRPOConfig = None
+
+_GC_KWARGS = {"use_reentrant": False}
 
 
 def _require(klass, name, min_trl):
@@ -56,6 +64,7 @@ def build_sft_config(
         greater_is_better=greater_is_better, fp16=fp16, bf16=bf16,
         report_to=report_to, seed=seed,
         gradient_checkpointing=gradient_checkpointing,
+        gradient_checkpointing_kwargs=_GC_KWARGS,
         dataset_text_field=dataset_text_field, packing=packing,
         remove_unused_columns=True,
     )
@@ -74,6 +83,7 @@ def build_dpo_config(
     warmup_ratio=0.1, lr_scheduler_type="cosine", eval_strategy="steps",
     eval_steps=100, save_strategy="steps", save_steps=100, logging_steps=50,
     fp16=False, bf16=False, report_to="none", seed=42,
+    gradient_checkpointing=False,
 ):
     _require(DPOConfig, "DPOConfig", "0.12.0")
     kwargs = dict(
@@ -87,6 +97,8 @@ def build_dpo_config(
         eval_steps=eval_steps, save_strategy=save_strategy,
         save_steps=save_steps, logging_steps=logging_steps,
         fp16=fp16, bf16=bf16, report_to=report_to, seed=seed,
+        gradient_checkpointing=gradient_checkpointing,
+        gradient_checkpointing_kwargs=_GC_KWARGS,
         remove_unused_columns=False,
     )
     kwargs.update(_eval_kwarg(eval_strategy))
@@ -113,6 +125,7 @@ def build_reward_config(
         save_strategy=save_strategy, logging_steps=logging_steps,
         bf16=bf16, fp16=fp16, report_to=report_to, seed=seed,
         gradient_checkpointing=gradient_checkpointing,
+        gradient_checkpointing_kwargs=_GC_KWARGS,
         remove_unused_columns=False,
     )
     kwargs.update(_eval_kwarg(eval_strategy))
@@ -122,7 +135,6 @@ def build_reward_config(
 def build_grpo_config(
     output_dir, num_generations=4, max_completion_length=256,
     max_prompt_length=256, temperature=0.9,
-    # top_p is NOT a GRPOConfig kwarg in trl 0.14.0 -> must not be passed
     beta=0.04, num_train_epochs=3, per_device_train_batch_size=2,
     per_device_eval_batch_size=2, gradient_accumulation_steps=4,
     learning_rate=1e-6, weight_decay=0.01, warmup_ratio=0.1,
@@ -146,6 +158,7 @@ def build_grpo_config(
         save_steps=save_steps, logging_steps=logging_steps,
         bf16=bf16, fp16=fp16, report_to=report_to, seed=seed,
         gradient_checkpointing=gradient_checkpointing,
+        gradient_checkpointing_kwargs=_GC_KWARGS,
         remove_unused_columns=False,
     )
     if HAS_MASK_TRUNCATED:

@@ -1,16 +1,21 @@
-"""PEFT / LoRA helpers."""
+"""PEFT / LoRA helpers — hardened against peft 0.19's strict torchao check."""
+
+import importlib.util
 
 from peft import LoraConfig, get_peft_model, TaskType
 
 
+def _torchao_present() -> bool:
+    return importlib.util.find_spec("torchao") is not None
+
+
 def _resolve_targets(model, user_targets):
-    """Fallback to a broader list if the model doesn't expose the requested
-    module names (e.g. Gemma vs Llama vs Qwen)."""
     if user_targets:
         return user_targets
-    # Try the common Llama/Gemma/Qwen names; PEFT will ignore missing ones.
-    return ["q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj"]
+    return [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ]
 
 
 def apply_lora(
@@ -29,6 +34,18 @@ def apply_lora(
         bias="none",
         task_type=task_type,
     )
-    model = get_peft_model(model, config)
+
+    try:
+        model = get_peft_model(model, config)
+    except ImportError as e:
+        if "torchao" in str(e).lower() and _torchao_present():
+            raise ImportError(
+                "peft detected an incompatible `torchao` install. This "
+                "project does not use torchao. Fix:\n\n"
+                "    !pip uninstall -y torchao\n"
+                "    # then: Runtime -> Restart Session\n"
+            ) from e
+        raise
+
     model.print_trainable_parameters()
     return model

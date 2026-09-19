@@ -1,16 +1,15 @@
 """Central place that builds TRL config objects with the correct parameter
 names for the installed TRL version.
 
-Safe to import on any TRL version. Uses runtime introspection for parameter
-names so future TRL renames never break the code.
+Safe to import on any TRL version — classes that are not available in the
+installed TRL release are simply left as `None` and their builders raise a
+clear, actionable error only when called.
 """
 
 from src.utils.version import (
+    SFT_USES_MAX_LENGTH,
     HAS_MASK_TRUNCATED,
-    HAS_SFT,
-    HAS_DPO,
-    HAS_REWARD,
-    HAS_GRPO,
+    HAS_SFT, HAS_DPO, HAS_REWARD, HAS_GRPO,
     TRL_VERSION,
 )
 
@@ -43,7 +42,7 @@ def _require(klass, name: str, min_trl: str):
         raise ImportError(
             f"`{name}` is not available in the installed TRL version "
             f"({TRL_VERSION}). Please upgrade with:\n"
-            f"    pip install --upgrade \"trl>={min_trl}\"\n"
+            f'    pip install --upgrade "trl>={min_trl}"\n'
             f"and restart the kernel."
         )
 
@@ -79,7 +78,7 @@ def build_sft_config(
 ):
     _require(SFTConfig, "SFTConfig", "0.12.0")
 
-    common_kwargs = dict(
+    kwargs = dict(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -101,30 +100,27 @@ def build_sft_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        remove_unused_columns=False,
+        # ----- KEY FIX -----
+        # SFT pre-tokenizes `text` into input_ids / attention_mask / labels.
+        # Leaving the raw string column behind (remove_unused_columns=False)
+        # makes the default collator try to tensorize a string -> ValueError.
+        remove_unused_columns=True,
+        # -------------------
         dataset_text_field=dataset_text_field,
         packing=packing,
     )
 
-    # Bulletproof: try new param name first, then old. Works on any TRL.
-    last_error = None
-    for key in ("max_length", "max_seq_length"):
-        try:
-            return SFTConfig(**common_kwargs, **{key: max_seq_length})
-        except TypeError as e:
-            if "unexpected keyword argument" not in str(e):
-                raise
-            last_error = e
-            continue
+    # Version-aware max length parameter name
+    if SFT_USES_MAX_LENGTH:
+        kwargs["max_length"] = max_seq_length
+    else:
+        kwargs["max_seq_length"] = max_seq_length
 
-    raise TypeError(
-        f"SFTConfig accepts neither `max_length` nor `max_seq_length` "
-        f"in TRL {TRL_VERSION}. Original error: {last_error}"
-    )
+    return SFTConfig(**kwargs)
 
 
 # ---------------------------------------------------------------------------
-# DPO — same idea, also bulletproof for `max_length`
+# DPO — needs prompt/chosen/rejected kept -> remove_unused_columns=False
 # ---------------------------------------------------------------------------
 def build_dpo_config(
     output_dir: str,
@@ -173,12 +169,12 @@ def build_dpo_config(
         bf16=bf16,
         report_to=report_to,
         seed=seed,
-        remove_unused_columns=False,
+        remove_unused_columns=False,   # DPO needs the raw prompt/chosen/rejected
     )
 
 
 # ---------------------------------------------------------------------------
-# Reward
+# Reward — needs chosen/rejected kept -> remove_unused_columns=False
 # ---------------------------------------------------------------------------
 def build_reward_config(
     output_dir: str,
@@ -221,12 +217,12 @@ def build_reward_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        remove_unused_columns=False,
+        remove_unused_columns=False,   # reward heads need chosen/rejected text
     )
 
 
 # ---------------------------------------------------------------------------
-# GRPO
+# GRPO — reward functions read dataset columns -> remove_unused_columns=False
 # ---------------------------------------------------------------------------
 def build_grpo_config(
     output_dir: str,
@@ -283,6 +279,8 @@ def build_grpo_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
+        # KEY: GRPO's reward functions read `reference` / `ground_truth`
+        # columns from the dataset. Do NOT strip them.
         remove_unused_columns=False,
     )
     if HAS_MASK_TRUNCATED:

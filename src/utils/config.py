@@ -1,12 +1,53 @@
 """Central place that builds TRL config objects with the correct parameter
-names for the installed TRL version. Every trainer file imports from here."""
+names for the installed TRL version.
 
-from trl import SFTConfig, DPOConfig, RewardConfig, GRPOConfig
+Safe to import on any TRL version — classes that are not available in the
+installed TRL release are simply left as `None` and their builders raise a
+clear, actionable error only when called.
+"""
 
 from src.utils.version import (
     SFT_USES_MAX_LENGTH,
     HAS_MASK_TRUNCATED,
+    HAS_SFT,
+    HAS_DPO,
+    HAS_REWARD,
+    HAS_GRPO,
+    TRL_VERSION,
 )
+
+# ---------------------------------------------------------------------------
+# Conditional imports — a missing class must NOT break the whole module.
+# ---------------------------------------------------------------------------
+if HAS_SFT:
+    from trl import SFTConfig
+else:
+    SFTConfig = None
+
+if HAS_DPO:
+    from trl import DPOConfig
+else:
+    DPOConfig = None
+
+if HAS_REWARD:
+    from trl import RewardConfig
+else:
+    RewardConfig = None
+
+if HAS_GRPO:
+    from trl import GRPOConfig
+else:
+    GRPOConfig = None
+
+
+def _require(klass, name: str, min_trl: str):
+    if klass is None:
+        raise ImportError(
+            f"`{name}` is not available in the installed TRL version "
+            f"({TRL_VERSION}). Please upgrade with:\n"
+            f"    pip install --upgrade \"trl>={min_trl}\"\n"
+            f"and restart the kernel."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +79,8 @@ def build_sft_config(
     seed: int = 42,
     gradient_checkpointing: bool = False,
 ):
-    """Return an SFTConfig that works on TRL 0.12+ (and older with fallback)."""
+    _require(SFTConfig, "SFTConfig", "0.12.0")
+
     kwargs = dict(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
@@ -101,6 +143,8 @@ def build_dpo_config(
     report_to: str = "none",
     seed: int = 42,
 ):
+    _require(DPOConfig, "DPOConfig", "0.12.0")
+
     return DPOConfig(
         output_dir=output_dir,
         beta=beta,
@@ -150,6 +194,8 @@ def build_reward_config(
     seed: int = 42,
     gradient_checkpointing: bool = True,
 ):
+    _require(RewardConfig, "RewardConfig", "0.12.0")
+
     return RewardConfig(
         output_dir=output_dir,
         max_length=max_length,
@@ -203,6 +249,9 @@ def build_grpo_config(
     seed: int = 42,
     gradient_checkpointing: bool = True,
 ):
+    # Only fails if the user *calls* this builder on an old TRL.
+    _require(GRPOConfig, "GRPOConfig", "0.14.0")
+
     kwargs = dict(
         output_dir=output_dir,
         num_generations=num_generations,

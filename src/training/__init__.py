@@ -1,5 +1,5 @@
-"""Training subpackage with lazy imports so one broken module never breaks
-the others."""
+"""Lazy-imported training subpackage. Missing trainers surface their
+ImportError only when the caller actually tries to use them."""
 
 __all__ = ["train_sft", "train_dpo", "train_reward", "train_grpo"]
 

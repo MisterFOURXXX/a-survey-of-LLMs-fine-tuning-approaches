@@ -1,14 +1,25 @@
-"""GRPO — Group Relative Policy Optimization."""
+"""GRPO — Group Relative Policy Optimization.
 
-from trl import GRPOTrainer
+Raises a clear error only if the user *calls* train_grpo() on a TRL version
+that does not ship GRPO (i.e. anything below 0.14.0).
+"""
 
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.utils.config import build_grpo_config
-from src.utils.version import TRAINER_USES_PROCESSING_CLASS
+from src.utils.version import (
+    TRAINER_USES_PROCESSING_CLASS,
+    HAS_GRPO,
+    TRL_VERSION,
+)
+
+# Conditional import — safe on old TRL.
+if HAS_GRPO:
+    from trl import GRPOTrainer
+else:
+    GRPOTrainer = None
 
 
 def reward_length_and_reasoning(prompts, completions, **kwargs):
-    """Simple rule-based reward: length + reasoning keywords."""
     rewards = []
     for completion in completions:
         text = completion[0] if isinstance(completion, list) else completion
@@ -35,6 +46,14 @@ def train_grpo(
     max_completion_length: int = 256,
     reward_funcs=None,
 ):
+    if GRPOTrainer is None:
+        raise ImportError(
+            f"`GRPOTrainer` is not available in the installed TRL version "
+            f"({TRL_VERSION}). Please upgrade with:\n"
+            f"    pip install --upgrade \"trl>=0.14.0\"\n"
+            f"and restart the kernel."
+        )
+
     if reward_funcs is None:
         reward_funcs = reward_length_and_reasoning
 

@@ -13,7 +13,7 @@ from src.utils.version import DTYPE_KWARG
 
 def load_tokenizer(model_name: str, padding_side: str = "right"):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    # Assign AFTER loading so we don't fight the model config's defaults.
+    # Assign AFTER loading so we don't fight the model config defaults.
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -22,18 +22,20 @@ def load_tokenizer(model_name: str, padding_side: str = "right"):
 
 
 def _align_special_tokens(model, tokenizer):
-    """Make the model config agree with the tokenizer up front, which silences
-    the 'tokenizer has new PAD/BOS/EOS tokens' warning."""
+    """Align model config and generation config with the tokenizer so
+    transformers doesn't print the 'tokenizer has new PAD/BOS/EOS tokens'
+    warning at generate time."""
     if tokenizer.pad_token_id is not None:
         model.config.pad_token_id = tokenizer.pad_token_id
     if tokenizer.eos_token_id is not None:
         model.config.eos_token_id = tokenizer.eos_token_id
     if tokenizer.bos_token_id is not None:
         model.config.bos_token_id = tokenizer.bos_token_id
-    if getattr(model, "generation_config", None) is not None:
-        model.generation_config.pad_token_id = tokenizer.pad_token_id
-        model.generation_config.eos_token_id = tokenizer.eos_token_id
-        model.generation_config.bos_token_id = tokenizer.bos_token_id
+    gen = getattr(model, "generation_config", None)
+    if gen is not None:
+        gen.pad_token_id = tokenizer.pad_token_id
+        gen.eos_token_id = tokenizer.eos_token_id
+        gen.bos_token_id = tokenizer.bos_token_id
 
 
 def _base_kwargs(dtype, device_map, quantize):
@@ -56,7 +58,7 @@ def _base_kwargs(dtype, device_map, quantize):
 def load_causal_lm(
     model_name: str,
     quantize: bool = False,
-    dtype=torch.float16,
+    dtype="auto",
     device_map: str = "auto",
     tokenizer=None,
 ):
@@ -73,7 +75,7 @@ def load_reward_model(
     model_name: str,
     num_labels: int = 1,
     quantize: bool = False,
-    dtype=torch.float16,
+    dtype="auto",
     device_map: str = "auto",
     tokenizer=None,
 ):

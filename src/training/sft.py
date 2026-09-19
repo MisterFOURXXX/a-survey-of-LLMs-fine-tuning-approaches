@@ -1,11 +1,18 @@
 """Supervised Fine-Tuning (SFT) with optional LoRA / QLoRA."""
 
-from trl import SFTTrainer
-
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.models.peft import apply_lora
 from src.utils.config import build_sft_config
-from src.utils.version import TRAINER_USES_PROCESSING_CLASS
+from src.utils.version import (
+    TRAINER_USES_PROCESSING_CLASS,
+    HAS_SFT,
+    TRL_VERSION,
+)
+
+if HAS_SFT:
+    from trl import SFTTrainer
+else:
+    SFTTrainer = None
 
 
 def train_sft(
@@ -25,8 +32,16 @@ def train_sft(
     fp16: bool = False,
     bf16: bool = False,
 ):
+    if SFTTrainer is None:
+        raise ImportError(
+            f"SFTTrainer is not available in TRL {TRL_VERSION}. "
+            f'Install with: pip install --upgrade "trl>=0.12.0"'
+        )
+
     tokenizer = load_tokenizer(model_name)
-    model = load_causal_lm(model_name, quantize=qlora, dtype="auto")
+    model = load_causal_lm(
+        model_name, quantize=qlora, dtype="auto", tokenizer=tokenizer
+    )
 
     if use_lora or qlora:
         model = apply_lora(model)

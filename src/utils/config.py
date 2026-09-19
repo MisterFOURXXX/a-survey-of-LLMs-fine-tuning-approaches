@@ -1,20 +1,23 @@
 """Central place that builds TRL config objects with the correct parameter
-names for the installed TRL version.
+names for the installed TRL + transformers versions.
 
-Safe to import on any TRL version — classes that are not available in the
-installed TRL release are simply left as `None` and their builders raise a
-clear, actionable error only when called.
+Works on trl 0.12 → 0.15 and transformers 4.40 → 4.60.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 from src.utils.version import (
     SFT_USES_MAX_LENGTH,
+    USES_EVAL_STRATEGY,
     HAS_MASK_TRUNCATED,
     HAS_SFT, HAS_DPO, HAS_REWARD, HAS_GRPO,
     TRL_VERSION,
 )
 
 # ---------------------------------------------------------------------------
-# Conditional imports — a missing class must NOT break the whole module.
+# Conditional imports so a missing class does not break the whole module.
 # ---------------------------------------------------------------------------
 if HAS_SFT:
     from trl import SFTConfig
@@ -41,10 +44,19 @@ def _require(klass, name: str, min_trl: str):
     if klass is None:
         raise ImportError(
             f"`{name}` is not available in the installed TRL version "
-            f"({TRL_VERSION}). Please upgrade with:\n"
+            f"({TRL_VERSION}). Upgrade with:\n"
             f'    pip install --upgrade "trl>={min_trl}"\n'
             f"and restart the kernel."
         )
+
+
+def _eval_kwarg(strategy: str) -> dict[str, str]:
+    """Pick the right evaluation-strategy kwarg for the installed transformers."""
+    return (
+        {"eval_strategy": strategy}
+        if USES_EVAL_STRATEGY
+        else {"evaluation_strategy": strategy}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -74,11 +86,23 @@ def build_sft_config(
     bf16: bool = False,
     report_to: str = "none",
     seed: int = 42,
-    gradient_checkpointing: bool = False,
-):
+    gradient_checkpointing: bool = True,
+) -> "SFTConfig":
+    """SFTConfig for trl 0.14.x.
+
+    Notes
+    -----
+    * TRL <0.16 uses `max_seq_length`. Passing `max_length` raises
+      `TypeError: SFTConfig.__init__() got an unexpected keyword argument
+      'max_length'`.
+    * transformers >=4.46 uses `eval_strategy` (not `evaluation_strategy`).
+    * `remove_unused_columns=True` is required so the default
+      DataCollatorForLanguageModeling does not try to tensorize the raw
+      `text` column (→ ValueError: too many dimensions 'str').
+    """
     _require(SFTConfig, "SFTConfig", "0.12.0")
 
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         output_dir=output_dir,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=per_device_train_batch_size,
@@ -88,7 +112,6 @@ def build_sft_config(
         weight_decay=weight_decay,
         warmup_ratio=warmup_ratio,
         lr_scheduler_type=lr_scheduler_type,
-        eval_strategy=eval_strategy,
         save_strategy=save_strategy,
         logging_steps=logging_steps,
         save_total_limit=save_total_limit,
@@ -100,17 +123,18 @@ def build_sft_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        # ----- KEY FIX -----
-        # SFT pre-tokenizes `text` into input_ids / attention_mask / labels.
-        # Leaving the raw string column behind (remove_unused_columns=False)
-        # makes the default collator try to tensorize a string -> ValueError.
-        remove_unused_columns=True,
-        # -------------------
+        # TRL SFT-specific fields
         dataset_text_field=dataset_text_field,
         packing=packing,
+        # Do NOT keep the raw string column — the default collator
+        # cannot handle `text` as a list of str.
+        remove_unused_columns=True,
     )
 
-    # Version-aware max length parameter name
+    # Version-aware evaluation-strategy kwarg
+    kwargs.update(_eval_kwarg(eval_strategy))
+
+    # Version-aware max-length kwarg: trl 0.14 → max_seq_length
     if SFT_USES_MAX_LENGTH:
         kwargs["max_length"] = max_seq_length
     else:
@@ -120,7 +144,7 @@ def build_sft_config(
 
 
 # ---------------------------------------------------------------------------
-# DPO — needs prompt/chosen/rejected kept -> remove_unused_columns=False
+# DPO
 # ---------------------------------------------------------------------------
 def build_dpo_config(
     output_dir: str,
@@ -147,7 +171,7 @@ def build_dpo_config(
 ):
     _require(DPOConfig, "DPOConfig", "0.12.0")
 
-    return DPOConfig(
+    kwargs: dict[str, Any] = dict(
         output_dir=output_dir,
         beta=beta,
         max_length=max_length,
@@ -160,7 +184,6 @@ def build_dpo_config(
         weight_decay=weight_decay,
         warmup_ratio=warmup_ratio,
         lr_scheduler_type=lr_scheduler_type,
-        eval_strategy=eval_strategy,
         eval_steps=eval_steps,
         save_strategy=save_strategy,
         save_steps=save_steps,
@@ -169,12 +192,15 @@ def build_dpo_config(
         bf16=bf16,
         report_to=report_to,
         seed=seed,
-        remove_unused_columns=False,   # DPO needs the raw prompt/chosen/rejected
+        # DPO needs the raw prompt/chosen/rejected columns to reach the trainer
+        remove_unused_columns=False,
     )
+    kwargs.update(_eval_kwarg(eval_strategy))
+    return DPOConfig(**kwargs)
 
 
 # ---------------------------------------------------------------------------
-# Reward — needs chosen/rejected kept -> remove_unused_columns=False
+# Reward
 # ---------------------------------------------------------------------------
 def build_reward_config(
     output_dir: str,
@@ -198,7 +224,7 @@ def build_reward_config(
 ):
     _require(RewardConfig, "RewardConfig", "0.12.0")
 
-    return RewardConfig(
+    kwargs: dict[str, Any] = dict(
         output_dir=output_dir,
         max_length=max_length,
         num_train_epochs=num_train_epochs,
@@ -209,7 +235,6 @@ def build_reward_config(
         weight_decay=weight_decay,
         warmup_ratio=warmup_ratio,
         lr_scheduler_type=lr_scheduler_type,
-        eval_strategy=eval_strategy,
         save_strategy=save_strategy,
         logging_steps=logging_steps,
         bf16=bf16,
@@ -217,12 +242,14 @@ def build_reward_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        remove_unused_columns=False,   # reward heads need chosen/rejected text
+        remove_unused_columns=False,
     )
+    kwargs.update(_eval_kwarg(eval_strategy))
+    return RewardConfig(**kwargs)
 
 
 # ---------------------------------------------------------------------------
-# GRPO — reward functions read dataset columns -> remove_unused_columns=False
+# GRPO
 # ---------------------------------------------------------------------------
 def build_grpo_config(
     output_dir: str,
@@ -253,7 +280,7 @@ def build_grpo_config(
 ):
     _require(GRPOConfig, "GRPOConfig", "0.14.0")
 
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         output_dir=output_dir,
         num_generations=num_generations,
         max_completion_length=max_completion_length,
@@ -269,7 +296,6 @@ def build_grpo_config(
         weight_decay=weight_decay,
         warmup_ratio=warmup_ratio,
         lr_scheduler_type=lr_scheduler_type,
-        eval_strategy=eval_strategy,
         eval_steps=eval_steps,
         save_strategy=save_strategy,
         save_steps=save_steps,
@@ -279,10 +305,10 @@ def build_grpo_config(
         report_to=report_to,
         seed=seed,
         gradient_checkpointing=gradient_checkpointing,
-        # KEY: GRPO's reward functions read `reference` / `ground_truth`
-        # columns from the dataset. Do NOT strip them.
+        # GRPO's reward functions read `reference` / `ground_truth` columns
         remove_unused_columns=False,
     )
     if HAS_MASK_TRUNCATED:
         kwargs["mask_truncated_completions"] = True
+    kwargs.update(_eval_kwarg(eval_strategy))
     return GRPOConfig(**kwargs)

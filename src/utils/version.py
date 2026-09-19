@@ -1,85 +1,64 @@
-"""Detect installed library versions and expose feature flags.
+"""Version detection used to pick the right TRL / transformers keyword names.
 
-IMPORTANT: this module must never fail to import. Every probe is wrapped in a
-broad `except Exception` because TRL's lazy import machinery can raise
-RuntimeError (not just ImportError) when a transitive dependency such as
-torchvision is broken.
+Never hard-code flags by hand — always derive them from the installed
+package versions so the same repo works on trl 0.12 → 0.16+ and
+transformers 4.40 → 4.60+.
 """
 
-import importlib
-import importlib.metadata as md
+from __future__ import annotations
+
+import transformers
+
+try:
+    import trl
+except ImportError:
+    trl = None
 
 
-def _ver(pkg: str) -> str:
-    try:
-        return md.version(pkg)
-    except md.PackageNotFoundError:
-        return "0.0.0"
-
-
-def _parse(v: str):
+def _v(mod) -> tuple[int, int, int]:
+    if mod is None:
+        return (0, 0, 0)
     parts = []
-    for p in v.split("."):
-        num = ""
-        for ch in p:
-            if ch.isdigit():
-                num += ch
-            else:
-                break
+    for tok in mod.__version__.split(".")[:3]:
+        # strip any "rc1"/"dev0" suffix
+        num = "".join(ch for ch in tok if ch.isdigit())
         parts.append(int(num) if num else 0)
     while len(parts) < 3:
         parts.append(0)
-    return tuple(parts[:3])
+    return tuple(parts)
 
 
-TRL_VERSION = _ver("trl")
-TRANSFORMERS_VERSION = _ver("transformers")
-PEFT_VERSION = _ver("peft")
+TRANSFORMERS_VERSION = _v(transformers)
+TRL_VERSION = _v(trl)
 
-TRL = _parse(TRL_VERSION)
-TRANSFORMERS = _parse(TRANSFORMERS_VERSION)
-PEFT = _parse(PEFT_VERSION)
+# ---- feature flags -------------------------------------------------------
+# transformers >= 4.46 renamed:
+#   evaluation_strategy -> eval_strategy
+#   torch_dtype         -> dtype
+USES_EVAL_STRATEGY = TRANSFORMERS_VERSION >= (4, 46, 0)
+DTYPE_KWARG = "dtype" if TRANSFORMERS_VERSION >= (4, 46, 0) else "torch_dtype"
 
-# ---------------------------------------------------------------------------
-# Feature flags
-# ---------------------------------------------------------------------------
-SFT_USES_MAX_LENGTH = TRL >= (0, 12, 0)
-TRAINER_USES_PROCESSING_CLASS = TRL >= (0, 12, 0)
-HAS_MASK_TRUNCATED = TRL >= (0, 13, 0)
-DTYPE_KWARG = "dtype" if TRANSFORMERS >= (4, 46, 0) else "torch_dtype"
+# TRL renamed max_seq_length -> max_length in 0.16. On 0.14.x
+# SFTConfig does NOT accept `max_length`, so SFT_USES_MAX_LENGTH must be False.
+SFT_USES_MAX_LENGTH = TRL_VERSION >= (0, 16, 0)
 
+# SFTTrainer accepts `processing_class` (not `tokenizer`) starting in trl 0.12
+TRAINER_USES_PROCESSING_CLASS = TRL_VERSION >= (0, 12, 0)
 
-# ---------------------------------------------------------------------------
-# Trainer availability — NEVER let a probe exception escape.
-# ---------------------------------------------------------------------------
-def _probe(module_path: str, attr: str) -> bool:
-    """
-    Return True only if `attr` on `module_path` can be *touched* successfully.
-    Catches every exception type because TRL's __getattr__ raises RuntimeError
-    (not ImportError) when a transitive dep such as torchvision is broken.
-    """
-    try:
-        mod = importlib.import_module(module_path)
-    except Exception:
-        return False
+# GRPOConfig gained mask_truncated_completions in 0.15
+HAS_MASK_TRUNCATED = TRL_VERSION >= (0, 15, 0)
 
-    try:
-        getattr(mod, attr)
-    except Exception:
-        return False
-
-    return True
-
-
-HAS_SFT = _probe("trl", "SFTTrainer") and _probe("trl", "SFTConfig")
-HAS_DPO = _probe("trl", "DPOTrainer") and _probe("trl", "DPOConfig")
-HAS_REWARD = _probe("trl", "RewardTrainer") and _probe("trl", "RewardConfig")
-HAS_GRPO = _probe("trl", "GRPOTrainer") and _probe("trl", "GRPOConfig")
+# Trainer availability
+HAS_SFT = trl is not None and hasattr(trl, "SFTTrainer")
+HAS_DPO = trl is not None and hasattr(trl, "DPOTrainer")
+HAS_REWARD = trl is not None and hasattr(trl, "RewardTrainer")
+HAS_GRPO = trl is not None and hasattr(trl, "GRPOTrainer")
 
 
 def banner() -> str:
+    tv = ".".join(map(str, TRANSFORMERS_VERSION))
+    rv = ".".join(map(str, TRL_VERSION))
     return (
-        f"trl={TRL_VERSION} transformers={TRANSFORMERS_VERSION} "
-        f"peft={PEFT_VERSION} | "
+        f"trl={rv} transformers={tv} | "
         f"SFT={HAS_SFT} DPO={HAS_DPO} Reward={HAS_REWARD} GRPO={HAS_GRPO}"
     )

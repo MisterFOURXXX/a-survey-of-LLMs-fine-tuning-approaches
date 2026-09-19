@@ -1,0 +1,26 @@
+StackSample Dataset
+===================
+
+Kaggle URL:
+https://www.kaggle.com/datasets/stackoverflow/stacksample
+
+Download steps:
+1. Install Kaggle CLI:
+   pip install kaggle
+
+2. Put your Kaggle API token here:
+   ~/.kaggle/kaggle.json
+
+3. Set permissions:
+   chmod 600 ~/.kaggle/kaggle.json
+
+4. Download dataset:
+   kaggle datasets download -d stackoverflow/stacksample -p data/raw
+
+5. Unzip:
+   unzip data/raw/stacksample.zip -d data/raw/stacksample
+
+Expected files:
+- Questions.csv
+- Answers.csv
+- Tags.csv

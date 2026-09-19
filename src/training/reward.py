@@ -1,8 +1,9 @@
-"""Bradley-Terry reward modeling trainer wrapper."""
+"""Bradley–Terry reward modeling."""
 
-from trl import RewardTrainer, RewardConfig
+from trl import RewardTrainer
 
 from src.models.loaders import load_tokenizer, load_reward_model
+from src.utils.config import build_reward_config
 
 
 def train_reward(
@@ -14,31 +15,27 @@ def train_reward(
     batch_size: int = 1,
     grad_accum: int = 4,
     lr: float = 2e-5,
-    max_length: int = 256,
+    max_length: int = 512,
+    bf16: bool = True,
 ):
     tokenizer = load_tokenizer(model_name, padding_side="left")
-    model = load_reward_model(model_name, num_labels=1)
+    model = load_reward_model(model_name, num_labels=1, dtype="auto")
 
-    args = RewardConfig(
+    reward_config = build_reward_config(
         output_dir=output_dir,
+        max_length=max_length,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
-        weight_decay=0.01,
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        logging_steps=10,
-        report_to="none",
-        remove_unused_columns=False,
-        max_length=max_length,
+        bf16=bf16,
     )
 
+    # RewardTrainer already uses `processing_class` in TRL 0.12+
     trainer = RewardTrainer(
         model=model,
-        args=args,
+        args=reward_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         processing_class=tokenizer,

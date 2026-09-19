@@ -1,20 +1,24 @@
-"""GRPO (Group Relative Policy Optimization) trainer wrapper."""
+"""GRPO — Group Relative Policy Optimization."""
 
-from trl import GRPOTrainer, GRPOConfig
+from trl import GRPOTrainer
 
 from src.models.loaders import load_tokenizer, load_causal_lm
+from src.utils.config import build_grpo_config
+from src.utils.version import TRAINER_USES_PROCESSING_CLASS
 
 
 def reward_length_and_reasoning(prompts, completions, **kwargs):
+    """Simple rule-based reward: length + reasoning keywords."""
     rewards = []
     for completion in completions:
         text = completion[0] if isinstance(completion, list) else completion
         words = text.split()
-        length_score = min(len(words) / 40, 1.0)
-        reasoning_score = 0.3 if any(
-            w in text.lower() for w in ["step", "first", "then", "therefore", "because"]
+        length_score = min(len(words) / 40.0, 1.0)
+        reasoning = 0.3 if any(
+            w in text.lower()
+            for w in ["step", "first", "then", "therefore", "because"]
         ) else 0.0
-        rewards.append(length_score + reasoning_score)
+        rewards.append(length_score + reasoning)
     return rewards
 
 
@@ -29,38 +33,38 @@ def train_grpo(
     lr: float = 1e-6,
     num_generations: int = 4,
     max_completion_length: int = 256,
+    reward_funcs=None,
 ):
-    tokenizer = load_tokenizer(model_name, padding_side="left")
-    model = load_causal_lm(model_name, quantize=True)
+    if reward_funcs is None:
+        reward_funcs = reward_length_and_reasoning
 
-    args = GRPOConfig(
+    tokenizer = load_tokenizer(model_name, padding_side="left")
+    model = load_causal_lm(model_name, quantize=False, dtype="auto")
+
+    grpo_config = build_grpo_config(
         output_dir=output_dir,
+        num_generations=num_generations,
+        max_completion_length=max_completion_length,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
         learning_rate=lr,
-        weight_decay=0.01,
-        eval_strategy="steps",
-        eval_steps=50,
-        save_strategy="steps",
-        save_steps=50,
-        logging_steps=10,
-        report_to="none",
-        remove_unused_columns=False,
-        num_generations=num_generations,
-        max_completion_length=max_completion_length,
-        temperature=0.9,
-        top_p=0.95,
+    )
+
+    extra = (
+        {"processing_class": tokenizer}
+        if TRAINER_USES_PROCESSING_CLASS
+        else {"tokenizer": tokenizer}
     )
 
     trainer = GRPOTrainer(
         model=model,
-        args=args,
+        args=grpo_config,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        processing_class=tokenizer,
-        reward_funcs=reward_length_and_reasoning,
+        reward_funcs=reward_funcs,
+        **extra,
     )
 
     trainer.train()

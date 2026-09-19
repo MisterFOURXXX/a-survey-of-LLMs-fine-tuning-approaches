@@ -1,4 +1,5 @@
-"""Training subpackage. Uses lazy imports so one broken module doesn't break all."""
+"""Training subpackage with lazy imports so one broken module never breaks
+the others."""
 
 __all__ = ["train_sft", "train_dpo", "train_reward", "train_grpo"]
 

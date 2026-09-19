@@ -233,7 +233,7 @@ def build_reward_config(
 
 
 # ---------------------------------------------------------------------------
-# GRPO
+# GRPO — TRL 0.14.0 compatible
 # ---------------------------------------------------------------------------
 def build_grpo_config(
     output_dir: str,
@@ -241,7 +241,8 @@ def build_grpo_config(
     max_completion_length: int = 256,
     max_prompt_length: int = 256,
     temperature: float = 0.9,
-    top_p: float = 0.95,
+    # NOTE: `top_p` is NOT a GRPOConfig field in trl 0.14.0.
+    #       Set it on the model's generation config instead (see note below).
     beta: float = 0.04,
     num_train_epochs: int = 3,
     per_device_train_batch_size: int = 2,
@@ -270,7 +271,7 @@ def build_grpo_config(
         max_completion_length=max_completion_length,
         max_prompt_length=max_prompt_length,
         temperature=temperature,
-        top_p=top_p,
+        # top_p removed — not accepted by GRPOConfig in trl 0.14.0
         beta=beta,
         num_train_epochs=num_train_epochs,
         per_device_train_batch_size=per_device_train_batch_size,

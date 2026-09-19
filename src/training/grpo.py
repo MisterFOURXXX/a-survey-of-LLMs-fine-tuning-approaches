@@ -4,6 +4,8 @@ Raises a clear error only if the user *calls* train_grpo() on a TRL version
 that does not ship GRPO (i.e. anything below 0.14.0).
 """
 
+from pyexpat import model
+
 from src.models.loaders import load_tokenizer, load_causal_lm
 from src.utils.config import build_grpo_config
 from src.utils.version import (
@@ -59,6 +61,8 @@ def train_grpo(
 
     tokenizer = load_tokenizer(model_name, padding_side="left")
     model = load_causal_lm(model_name, quantize=False, dtype="auto")
+    model.generation_config.top_p = 0.95      # works regardless of TRL version
+    model.generation_config.top_k = 0         # disable top-k if you want
 
     grpo_config = build_grpo_config(
         output_dir=output_dir,

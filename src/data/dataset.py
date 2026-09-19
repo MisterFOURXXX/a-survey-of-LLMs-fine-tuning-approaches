@@ -1,5 +1,6 @@
 """Dataset builders and Hugging Face Dataset wrappers."""
 
+from __future__ import annotations
 from datasets import Dataset, DatasetDict
 import pandas as pd
 
@@ -78,3 +79,38 @@ def _fallback_split(df: pd.DataFrame, seed: int) -> tuple[pd.DataFrame, pd.DataF
     shuffled = df.sample(frac=1.0, random_state=seed).reset_index(drop=True)
     split_idx = max(1, int(0.9 * len(shuffled)))
     return shuffled.iloc[:split_idx], shuffled.iloc[split_idx:]
+
+def make_train_val_datasets(
+    df: pd.DataFrame,
+    frac: float = 0.8,
+    seed: int = 42,
+    preserve_index: bool = False,
+):
+    """Split a DataFrame into (train, val) HuggingFace Datasets.
+
+    Splitting is done on the DataFrame *before* converting to a Dataset,
+    so the training subset's index labels are still valid for `df.drop(...)`.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+    frac : float, default 0.8
+        Fraction of rows to put in the training split.
+    seed : int, default 42
+    preserve_index : bool, default False
+        Passed to `Dataset.from_pandas`.
+
+    Returns
+    -------
+    (train_dataset, val_dataset) : tuple[Dataset, Dataset]
+    """
+    if not 0 < frac < 1:
+        raise ValueError(f"frac must be in (0, 1); got {frac}")
+
+    train_df = df.sample(frac=frac, random_state=seed)
+    val_df   = df.drop(train_df.index)
+
+    return (
+        Dataset.from_pandas(train_df, preserve_index=preserve_index),
+        Dataset.from_pandas(val_df,   preserve_index=preserve_index),
+    )

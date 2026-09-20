@@ -1,4 +1,4 @@
-"""CLI: GRPO (Group Relative Policy Optimization)."""
+"""CLI: train GRPO from a YAML config."""
 
 import argparse
 import os
@@ -6,84 +6,28 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.utils.config_loader import load_config
 from src.utils.seed import set_seed
-from src.data.preprocess import load_stackoverflow, split_qa
-from src.data.dataset import build_grpo_datasets
+from src.data.preprocess import load_stackoverflow, split_qa, make_grpo_prompts
+from src.data.dataset import make_train_val_datasets
 from src.training.grpo import train_grpo
 
 
-# --- default reward functions (same as notebook) ---
-def reward_length(completions, **kwargs):
-    return [min(len(c.split()), 200) / 200.0 for c in completions]
-
-
-def reward_format(completions, **kwargs):
-    out = []
-    for c in completions:
-        s = 0.0
-        if c and c.strip():
-            s += 0.5
-        if "```" in c or c.rstrip().endswith((".", "!", "?")):
-            s += 0.5
-        out.append(s)
-    return out
-
-
-def reward_no_repetition(completions, **kwargs):
-    out = []
-    for c in completions:
-        toks = c.split()
-        if len(toks) < 8:
-            out.append(0.0)
-            continue
-        tri = [tuple(toks[i:i+3]) for i in range(len(toks) - 2)]
-        out.append(len(set(tri)) / max(len(tri), 1))
-    return out
-
-
-REWARD_FUNCS = [reward_length, reward_format, reward_no_repetition]
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Train with GRPO on StackSample.")
-    parser.add_argument("--model_name", default="google/gemma-3-270m")
-    parser.add_argument("--raw_dir", default=None)
-    parser.add_argument("--output_dir", default="outputs/grpo")
-    parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--grad_accum", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=1e-6)
-    parser.add_argument("--num_generations", type=int, default=4)
-    parser.add_argument("--max_completion_length", type=int, default=256)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--logging_steps", type=int, default=1)
-    parser.add_argument("--eval_steps", type=int, default=5)
-    parser.add_argument("--save_steps", type=int, default=10)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/grpo.yaml")
     args = parser.parse_args()
 
-    set_seed(args.seed)
+    cfg = load_config(args.config)
+    set_seed(cfg.get("seed", 42))
 
-    df = load_stackoverflow(args.raw_dir)
-    train_df, val_df, _ = split_qa(df, seed=args.seed)
+    df = load_stackoverflow(cfg["data_dir"])
+    train_df, val_df, _ = split_qa(df, seed=cfg.get("seed", 42))
 
-    datasets = build_grpo_datasets(train_df, val_df)
+    grpo_df = make_grpo_prompts(train_df)
+    train_ds, val_ds = make_train_val_datasets(grpo_df, frac=0.8, seed=cfg.get("seed", 42))
 
-    train_grpo(
-        model_name=args.model_name,
-        train_dataset=datasets["train"],
-        eval_dataset=datasets["validation"],
-        reward_funcs=REWARD_FUNCS,        # <-- required
-        output_dir=args.output_dir,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        grad_accum=args.grad_accum,
-        lr=args.lr,
-        num_generations=args.num_generations,
-        max_completion_length=args.max_completion_length,
-        logging_steps=args.logging_steps,
-        eval_steps=args.eval_steps,
-        save_steps=args.save_steps,
-    )
+    train_grpo(cfg, train_ds, val_ds)
 
 
 if __name__ == "__main__":

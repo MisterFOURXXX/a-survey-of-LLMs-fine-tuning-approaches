@@ -6,9 +6,7 @@ from bs4 import BeautifulSoup
 from sklearn.model_selection import train_test_split
 
 
-# ---------------------------------------------------------------------------
-# Path resolution
-# ---------------------------------------------------------------------------
+# Data Path on different platforms (Kaggle, Colab, local repo, etc.)
 # Candidate locations, checked in order. First hit that contains
 # "Questions.csv" and "Answers.csv" wins.
 _DEFAULT_CANDIDATES = [
@@ -18,8 +16,6 @@ _DEFAULT_CANDIDATES = [
     # Kaggle "Datasets" input (new path scheme)
     "/kaggle/input/stacksample",
     "/kaggle/input/datasets/stackoverflow/stacksample",
-    # Kaggle "Datasets" input (old path scheme)
-    "/kaggle/input/stackoverflow-stacksample",
     # Colab / user home
     "~/data/raw/stacksample",
 ]
@@ -49,8 +45,6 @@ def _resolve_raw_dir(raw_dir: str | Path | None = None) -> Path:
         if cand.is_dir() and (cand / "Questions.csv").exists() and (cand / "Answers.csv").exists():
             return cand
 
-    # Fallback: return the first candidate that exists (even if empty),
-    # or the first candidate path so the error message is meaningful.
     for cand in candidates:
         if cand.is_dir():
             return cand
@@ -63,9 +57,7 @@ def _resolve_raw_dir(raw_dir: str | Path | None = None) -> Path:
     )
 
 
-# ---------------------------------------------------------------------------
 # Text cleaning
-# ---------------------------------------------------------------------------
 def clean_html(text: str | None) -> str:
     if not text:
         return ""
@@ -73,9 +65,7 @@ def clean_html(text: str | None) -> str:
     return soup.get_text(separator=" ", strip=True)
 
 
-# ---------------------------------------------------------------------------
 # Dataset loading
-# ---------------------------------------------------------------------------
 def load_stackoverflow(raw_dir: str | Path | None = None) -> pd.DataFrame:
     """
     Load and clean the StackSample Q&A dataset.
@@ -102,7 +92,7 @@ def load_stackoverflow(raw_dir: str | Path | None = None) -> pd.DataFrame:
         columns=["Id", "ParentId", "Body", "Score"],
     ).filter(pl.col("Score") > 5)
 
-    questions = questions.sort("Score", descending=True).head(100) # was 200
+    questions = questions.sort("Score", descending=True).head(100) # sample top 100 questions by score for testing
 
     questions = questions.with_columns([
         pl.col("Body").map_elements(clean_html, return_dtype=pl.Utf8),
@@ -135,18 +125,14 @@ def load_stackoverflow(raw_dir: str | Path | None = None) -> pd.DataFrame:
     return df
 
 
-# ---------------------------------------------------------------------------
 # Splitting
-# ---------------------------------------------------------------------------
 def split_qa(df: pd.DataFrame, test_size=0.3, val_size=0.5, seed=42):
     train_df, temp_df = train_test_split(df, test_size=test_size, random_state=seed)
     val_df, test_df = train_test_split(temp_df, test_size=val_size, random_state=seed)
     return train_df, val_df, test_df
 
 
-# ---------------------------------------------------------------------------
 # Task-specific data builders
-# ---------------------------------------------------------------------------
 def format_sft_text(row) -> str:
     return (
         f"Question: {row['question_title']} {row['question_body']}\n"
@@ -219,3 +205,24 @@ def make_grpo_prompts(df: pd.DataFrame) -> pd.DataFrame:
             "reference": row["answer"],
         })
     return pd.DataFrame(prompts).drop_duplicates(subset=["prompt"])
+
+def make_eval_frame(df):
+    """Return a DataFrame with columns `prompt` and `reference`.
+
+    `prompt` is `Question: ...\nAnswer:` (no answer text).
+    `reference` is the gold answer alone.
+
+    Robust to missing/empty answers and to multiple 'Answer:' tokens.
+    """
+    sft = make_sft_dataframe(df)          # already yields the 'Question:.../Answer:...' text
+    prompts, refs = [], []
+    for t in sft["text"]:
+        t = str(t)
+        if "Answer:" in t:
+            q, a = t.split("Answer:", 1)
+            prompts.append(q.rstrip() + "\nAnswer:")
+            refs.append(a.strip())
+        else:
+            prompts.append(t.strip() + "\nAnswer:")
+            refs.append("")
+    return pd.DataFrame({"prompt": prompts, "reference": refs})

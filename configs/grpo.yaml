@@ -1,0 +1,27 @@
+defaults: [base]
+
+method: grpo
+output_dir: "outputs/grpo"
+use_lora: true
+qlora: false
+
+num_generations: 4
+max_completion_length: 256
+max_prompt_length: 256
+temperature: 0.9
+beta: 0.04
+
+reward_funcs: [length, format, no_repetition]
+
+epochs: 3
+batch_size: 2
+grad_accum: 4
+lr: 1.0e-6
+weight_decay: 0.01
+warmup_ratio: 0.1
+
+logging_steps: 1
+eval_steps: 5
+save_steps: 10
+eval_strategy: "steps"
+save_strategy: "steps"

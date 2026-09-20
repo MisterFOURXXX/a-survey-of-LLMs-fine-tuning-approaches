@@ -9,7 +9,7 @@ from transformers import (
 )
 
 from src.utils.version import DTYPE_KWARG
-
+import json, os
 
 def load_tokenizer(model_name: str, padding_side: str = "right"):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
@@ -77,7 +77,7 @@ def load_reward_model(
     num_labels: int = 1,
     quantize: bool = False,
     dtype="auto",
-    device_map=None,                      # <-- None, not "auto"
+    device_map=None,                     
     tokenizer=None,
 ):
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -89,3 +89,47 @@ def load_reward_model(
         _align_special_tokens(model, tokenizer)
     model.config.use_cache = False
     return model
+
+
+def load_model_for_inference(path: str, dtype="auto", device_map: str = "auto"):
+    """Load a full model OR a PEFT/LoRA adapter directory for inference.
+
+    Returns
+    -------
+    (model, base_model_id) : tuple
+        `base_model_id` is the tokenizer source — the adapter dir if it has
+        tokenizer files, otherwise the base model ID from adapter_config.json.
+    """
+    adapter_cfg = os.path.join(path, "adapter_config.json")
+    if os.path.exists(adapter_cfg):
+        with open(adapter_cfg) as f:
+            cfg = json.load(f)
+        base_id = cfg.get("base_model_name_or_path") or cfg.get("base_model_name_or_path")
+        if not base_id:
+            raise ValueError(f"adapter_config.json in {path} has no base_model_name_or_path")
+
+        from peft import PeftModel
+        base = AutoModelForCausalLM.from_pretrained(
+            base_id,
+            trust_remote_code=True,
+            low_cpu_mem_usage=True,
+            device_map=device_map,
+            **{DTYPE_KWARG: dtype},
+        )
+        model = PeftModel.from_pretrained(base, path, device_map=device_map)
+        model = model.merge_and_unload()          # fold LoRA into base for fast eval
+        tokenizer_source = (
+            path if os.path.exists(os.path.join(path, "tokenizer_config.json"))
+            else base_id
+        )
+        return model, tokenizer_source
+
+    # Full model directory
+    model = AutoModelForCausalLM.from_pretrained(
+        path,
+        trust_remote_code=True,
+        low_cpu_mem_usage=True,
+        device_map=device_map,
+        **{DTYPE_KWARG: dtype},
+    )
+    return model, path

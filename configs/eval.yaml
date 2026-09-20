@@ -1,0 +1,13 @@
+data_dir: "/kaggle/input/datasets/stackoverflow/stacksample"
+num_samples: 20
+max_new_tokens: 128
+max_input_length: 512
+batch_size: 4
+
+models:
+  SFT+LoRA:  "outputs/sft-lora"
+  SFT+QLoRA: "outputs/sft-qlora"
+  DPO:       "outputs/dpo"
+  GRPO:      "outputs/grpo"
+
+output_png: "outputs/evaluation_comparison.png"

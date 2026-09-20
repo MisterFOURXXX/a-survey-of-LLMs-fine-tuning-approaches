@@ -1,0 +1,20 @@
+defaults: [base]
+
+method: reward
+output_dir: "outputs/reward"
+use_lora: true
+
+max_length: 512
+
+epochs: 3
+batch_size: 1
+grad_accum: 4
+lr: 2.0e-5
+weight_decay: 0.01
+warmup_ratio: 0.1
+
+logging_steps: 1
+eval_steps: 10
+save_steps: 10
+eval_strategy: "steps"
+save_strategy: "steps"

@@ -29,7 +29,6 @@ def _v(mod) -> tuple[int, int, int]:
 TRANSFORMERS_VERSION = _v(transformers)
 TRL_VERSION = _v(trl)
 
-# ---- feature flags -------------------------------------------------------
 # transformers >= 4.46 renamed:
 #   evaluation_strategy -> eval_strategy
 #   torch_dtype         -> dtype

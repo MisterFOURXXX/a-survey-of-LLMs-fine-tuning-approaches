@@ -72,7 +72,6 @@ def apply_lora(
             ) from e
         raise
 
-    # --- KEY FIX: input embeddings must require grad for reentrant GC ---
     _enable_input_require_grads(model)
 
     model.print_trainable_parameters()

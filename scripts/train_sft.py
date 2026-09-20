@@ -1,80 +1,36 @@
-"""Supervised Fine-Tuning (SFT) with optional LoRA / QLoRA."""
+"""CLI: train SFT from a YAML config."""
 
-from src.models.loaders import load_tokenizer, load_causal_lm
-from src.models.peft import apply_lora
-from src.utils.config import build_sft_config
-from src.utils.version import TRAINER_USES_PROCESSING_CLASS, HAS_SFT, TRL_VERSION
+import argparse
+import os
+import sys
 
-if HAS_SFT:
-    from trl import SFTTrainer
-else:
-    SFTTrainer = None
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from datasets import Dataset
+
+from src.utils.config_loader import load_config
+from src.utils.seed import set_seed
+from src.data.preprocess import load_stackoverflow, split_qa, make_sft_dataframe
+from src.training.sft import train_sft
 
 
-def train_sft(
-    model_name: str,
-    train_dataset,
-    eval_dataset,
-    output_dir: str,
-    use_lora: bool = True,
-    qlora: bool = False,
-    max_seq_length: int = 256,
-    dataset_text_field: str = "text",
-    packing: bool = False,
-    epochs: int = 3,
-    batch_size: int = 4,
-    grad_accum: int = 2,
-    lr: float = 2e-4,
-    logging_steps: int = 5,
-    fp16: bool = False,
-    bf16: bool = False,
-):
-    if SFTTrainer is None:
-        raise ImportError(
-            f"SFTTrainer is not available in TRL {TRL_VERSION}. "
-            f'Install with: pip install --upgrade "trl>=0.12.0"'
-        )
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/sft_lora.yaml",
+                        help="Path to a YAML config (see configs/).")
+    args = parser.parse_args()
 
-    tokenizer = load_tokenizer(model_name)
-    model = load_causal_lm(
-        model_name, quantize=qlora, dtype="auto", tokenizer=tokenizer
-    )
+    cfg = load_config(args.config)
+    set_seed(cfg.get("seed", 42))
 
-    if use_lora or qlora:
-        model = apply_lora(model)
+    df = load_stackoverflow(cfg["data_dir"])
+    train_df, val_df, _ = split_qa(df, seed=cfg.get("seed", 42))
 
-    model.config.use_cache = False
+    train_ds = Dataset.from_pandas(make_sft_dataframe(train_df), preserve_index=False)
+    val_ds   = Dataset.from_pandas(make_sft_dataframe(val_df),   preserve_index=False)
 
-    sft_config = build_sft_config(
-        output_dir=output_dir,
-        max_seq_length=max_seq_length,
-        dataset_text_field=dataset_text_field,
-        packing=packing,
-        num_train_epochs=epochs,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=grad_accum,
-        learning_rate=lr,
-        logging_steps=logging_steps,
-        fp16=fp16,
-        bf16=bf16,
-        gradient_checkpointing=True,
-    )
+    train_sft(cfg, train_ds, val_ds)
 
-    extra = (
-        {"processing_class": tokenizer}
-        if TRAINER_USES_PROCESSING_CLASS
-        else {"tokenizer": tokenizer}
-    )
 
-    trainer = SFTTrainer(
-        model=model,
-        args=sft_config,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        **extra,
-    )
-    trainer.train()
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
-    return trainer
+if __name__ == "__main__":
+    main()

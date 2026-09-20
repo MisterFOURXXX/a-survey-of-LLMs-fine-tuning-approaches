@@ -1,6 +1,4 @@
-# ---- PyTorch stack (must be a matching pair) ----
-# Kaggle/Colab ship a specific pair; adding these lines keeps them aligned
-# when the kernel is recreated.
+# ---- PyTorch stack ----
 torch==2.11.0
 torchvision==0.26.0
 torchaudio==2.11.0

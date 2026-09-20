@@ -1,0 +1,21 @@
+defaults: [base]
+
+method: sft
+output_dir: "outputs/sft-lora"
+use_lora: true
+qlora: false
+
+max_seq_length: 256
+dataset_text_field: "text"
+packing: false
+
+epochs: 1
+batch_size: 4
+grad_accum: 2
+lr: 2.0e-4
+weight_decay: 0.01
+warmup_ratio: 0.1
+
+logging_steps: 5
+eval_strategy: "epoch"
+save_strategy: "epoch"

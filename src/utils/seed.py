@@ -13,6 +13,5 @@ def set_seed(seed: int = 42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
-    # keep deterministic behaviour off (it hurts perf on T4/P100)
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True

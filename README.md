@@ -92,7 +92,7 @@ All experiments use:
 |---|---|---|
 | Base model | `google/gemma-3-270m` | Small enough to run on a single consumer GPU (T4, RTX 3060+), large enough to exhibit real fine-tuning dynamics. |
 | Dataset | Kaggle **StackSample** (StackOverflow Q&A) | Real, noisy, license-friendly, and supports every downstream task (SFT, preference pairs, reward pairs, GRPO prompts). |
-| Framework | `transformers==4.57`, `trl==0.14.0`, `peft==0.19` | Pinned for reproducibility across TRL's breaking renames (`max_seq_length` → `max_length`, `top_p` in GRPO, etc.). |
+| Framework | `transformers==4.57`, `trl==0.14.0`, `peft==0.19` | Pinned for reproducibility across TRL's breaking renames (`max_seq_length` -> `max_length`, `top_p` in GRPO, etc.). |
 | Orchestration | YAML configs + `scripts/train_*.py` | Every hyperparameter lives in one file; no magic numbers in code. |
 
 **Methods covered** (all four trainer families):
@@ -305,7 +305,7 @@ Configures base parameters so the model can adapt rapidly to new target tasks gi
 
 * **MAML (Model-Agnostic Meta-Learning):** Bi-level optimization loop. The model takes gradient steps on a small support set for a task (inner loop), evaluates performance on a query set (outer loop), and backpropagates through the inner loop updates to optimize initial weight settings.
 * **Reptile:** A first-order approximation of MAML that avoids backpropagating through inner-loop gradient paths. It trains on a task for standard steps, then pulls base weights toward post-adaptation weights: $\theta \leftarrow \theta + \epsilon(\theta' - \theta)$.
-* **Meta-ICL (Meta In-Context Learning):** Fine-tunes the language model on structured episodes ([example 1] [example 2] [example 3] [query] → answer) to train internal attention mechanisms to process and leverage in-context demonstrations at inference time.
+* **Meta-ICL (Meta In-Context Learning):** Fine-tunes the language model on structured episodes ([example 1] [example 2] [example 3] [query] -> answer) to train internal attention mechanisms to process and leverage in-context demonstrations at inference time.
 
 ---
 
@@ -598,7 +598,7 @@ a-survey-of-LLMs-fine-tuning-approaches/
 │   └── evaluate.py                # python scripts/evaluate.py     --config configs/eval.yaml
 │
 ├── notebooks/
-│   ├── 01_fine_tuning_comparison.ipynb   # End-to-end: data → train all methods
+│   ├── 01_fine_tuning_comparison.ipynb   # End-to-end: data -> train all methods
 │   └── 02_evaluation_comparison.ipynb    # BLEU / ROUGE-L / EM benchmark + plots
 │
 ├── data/
@@ -661,14 +661,15 @@ pip install -r requirements.txt
 The StackSample dataset is downloaded from Kaggle. You must supply your own
 `kaggle.json` API token.
 
-1. Log in to Kaggle → **Account → Create New API Token**. This downloads
+1. Log in to Kaggle -> **Account -> Create New API Token**. This downloads
    `kaggle.json` containing your username and API key.
 2. Move it to the standard location:
 
    ```bash
-   mkdir -p ~/.kaggle
-   mv /path/to/kaggle.json ~/.kaggle/kaggle.json
-   chmod 600 ~/.kaggle/kaggle.json
+  pip install kaggle
+  mkdir -p ~/.kaggle
+  mv /your_download_path/kaggle.json ~/.kaggle/
+  chmod 600 ~/.kaggle/kaggle.json
    ```
 
    On Windows, the file goes to `%USERPROFILE%\.kaggle\kaggle.json`.
@@ -709,8 +710,9 @@ python -m src.data.download   # (or run the "Download Dataset" cell in notebook 
 Or manually:
 
 ```bash
-kaggle datasets download stackoverflow/stacksample -p data/stackoverflow/
-cd data/stackoverflow && unzip stacksample.zip -d stacksample && cd ../..
+import kaggle
+kaggle.api.authenticate()
+kaggle.api.dataset_download_files("stackoverflow/stacksample", path="/a-survey-of-LLMs-fine-tuning-approaches/data",unzip=True)
 ```
 
 After this you should have:
@@ -734,10 +736,10 @@ data/stackoverflow/stacksample/
 2. **Quality filter** — keep only rows with `Score > 5`.
 3. **Join** — `Answers.ParentId == Questions.Id` (inner join).
 4. **Task-specific framing:**
-   * SFT → `Question: …\nAnswer: …`
-   * DPO → `{prompt, chosen, rejected}` by max/min score per question
-   * Reward → all-pairs tournament per question
-   * GRPO → `{prompt, reference}` only
+   * SFT -> `Question: …\nAnswer: …`
+   * DPO -> `{prompt, chosen, rejected}` by max/min score per question
+   * Reward -> all-pairs tournament per question
+   * GRPO -> `{prompt, reference}` only
 5. **Split** — 80/10/10 by question ID (train/val/test).
 
 ### 6.4 Why splits are done on the DataFrame, not on the `Dataset`

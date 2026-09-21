@@ -1,5 +1,3 @@
-# README.md
-
 # A Survey of LLM Fine-Tuning Approaches
 
 > An end-to-end, reproducible research repository that implements, compares, and

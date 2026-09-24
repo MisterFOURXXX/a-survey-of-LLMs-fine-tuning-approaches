@@ -15,8 +15,6 @@
 
 ## Table of Contents
 
-## Table of Contents
-
 1. [Project Overview](#1-project-overview)
 2. [Foundations](#2-foundations)
    - [2.1 Supervised Fine-Tuning (SFT)](#21-supervised-fine-tuning-sft)
